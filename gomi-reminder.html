@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ゴミ出しリマインダー</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --card: #ffffff;
+    --ink: #2b2b2b;
+    --sub: #8a8276;
+    --accent: #3a7d44;
+    --accent-soft: #e3efe4;
+    --line: #e7e2d6;
+    --warn: #c4622d;
+    --warn-soft: #f8e9df;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 20px 16px 80px;
+  }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 24px; padding-top: 8px; }
+  header h1 { font-size: 22px; letter-spacing: 0.04em; }
+  header p { font-size: 13px; color: var(--sub); margin-top: 4px; }
+
+  .today {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px 20px;
+    margin-bottom: 22px;
+    text-align: center;
+  }
+  .today .label { font-size: 12px; color: var(--sub); letter-spacing: 0.1em; }
+  .today .date { font-size: 17px; margin: 6px 0 14px; font-weight: 600; }
+  .today .items { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .pill {
+    background: var(--warn-soft);
+    color: var(--warn);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .today .none { font-size: 15px; color: var(--sub); }
+
+  /* 通知バナー */
+  .notif-banner {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .notif-banner p { font-size: 13px; color: var(--ink); flex: 1; }
+  .notif-banner p span { color: var(--sub); font-size: 12px; display: block; margin-top: 2px; }
+  .notif-btn {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .notif-btn:active { opacity: 0.8; }
+  .notif-ok { font-size: 13px; color: var(--accent); text-align: center; padding: 10px 0 18px; }
+
+  .section-title { font-size: 13px; color: var(--sub); letter-spacing: 0.08em; margin: 0 4px 10px; }
+
+  .list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .row {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .row .info .name { font-size: 16px; font-weight: 600; }
+  .row .info .days { font-size: 13px; color: var(--sub); margin-top: 2px; }
+  .del {
+    background: none; border: none; color: var(--sub);
+    font-size: 13px; cursor: pointer; padding: 6px 8px; border-radius: 8px;
+  }
+  .del:active { background: var(--bg); }
+  .empty { text-align: center; color: var(--sub); font-size: 14px; padding: 18px 0; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 16px;
+  }
+  label { display: block; font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+  input[type=text] {
+    width: 100%; padding: 12px 14px; font-size: 16px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+    color: var(--ink); margin-bottom: 16px;
+  }
+  input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .weekdays { display: flex; gap: 6px; margin-bottom: 14px; }
+  .wd {
+    flex: 1; text-align: center; padding: 10px 0; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+    background: var(--bg); color: var(--sub); user-select: none;
+  }
+  .wd.on { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+
+  /* 隔週オプション */
+  .biweekly-area { margin-bottom: 16px; }
+  .biweekly-toggle {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--sub); cursor: pointer; user-select: none;
+    margin-bottom: 10px;
+  }
+  .biweekly-toggle input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .biweekly-opts { display: none; gap: 8px; }
+  .biweekly-opts.show { display: flex; }
+  .bw-opt {
+    flex: 1; text-align: center; padding: 10px 0; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+    background: var(--bg); color: var(--sub); user-select: none; line-height: 1.4;
+  }
+  .bw-opt.on { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+
+  /* 通知時刻 */
+  .time-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .time-row label { margin-bottom: 0; white-space: nowrap; }
+  input[type=time] {
+    padding: 10px 12px; font-size: 15px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink);
+  }
+
+  .add {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 600;
+    background: var(--accent); color: #fff; border: none; border-radius: 12px; cursor: pointer;
+  }
+  .add:active { opacity: 0.85; }
+  .note { font-size: 12px; color: var(--sub); text-align: center; margin-top: 18px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ゴミ出しリマインダー</h1>
+    <p>曜日を登録すると、通知で教えてくれます</p>
+  </header>
+
+  <!-- 通知許可バナー -->
+  <div class="notif-banner" id="notifBanner">
+    <p>通知を許可すると、ゴミの日の朝に自動でお知らせします。<span>開かなくてもスマホに届きます</span></p>
+    <button class="notif-btn" id="notifBtn">通知を許可</button>
+  </div>
+
+  <div class="today">
+    <div class="label">きょう</div>
+    <div class="date" id="todayDate"></div>
+    <div class="items" id="todayItems"></div>
+  </div>
+
+  <div class="section-title">登録したゴミ</div>
+  <div class="list" id="list"></div>
+
+  <div class="section-title">新しく登録する</div>
+  <div class="card">
+    <label>ゴミの種類</label>
+    <input type="text" id="nameInput" placeholder="例：燃えるゴミ、ペットボトル">
+
+    <label>収集する曜日（複数えらべます）</label>
+    <div class="weekdays" id="weekdays"></div>
+
+    <div class="biweekly-area">
+      <label class="biweekly-toggle">
+        <input type="checkbox" id="biweeklyCheck"> 隔週のゴミ（2週間に1回）
+      </label>
+      <div class="biweekly-opts" id="biweeklyOpts">
+        <div class="bw-opt" data-w="A">第1・3週に回収</div>
+        <div class="bw-opt" data-w="B">第2・4週に回収</div>
+      </div>
+    </div>
+
+    <div class="time-row">
+      <label>通知する時刻</label>
+      <input type="time" id="notifTime" value="07:00">
+    </div>
+
+    <button class="add" id="addBtn">登録する</button>
+  </div>
+
+  <p class="note" id="bottomNote">登録した内容はこの端末のブラウザに保存されます。<br>通知を許可すると、毎朝自動でお知らせが届きます。</p>
+</div>
+
+<script>
+  const WD = ["日","月","火","水","木","金","土"];
+  let selected = [];
+  let biweeklyWeek = null; // null=毎週, "A"=1・3週, "B"=2・4週
+  let data = [];
+  let swReg = null;
+
+  // ---- 保存・読み込み ----
+  function load() {
+    try {
+      const raw = localStorage.getItem("gomiData2");
+      data = raw ? JSON.parse(raw) : [];
+    } catch(e) { data = []; }
+  }
+  function save() {
+    localStorage.setItem("gomiData2", JSON.stringify(data));
+  }
+
+  // ---- 今週が A(1・3週) か B(2・4週) か ----
+  function getWeekGroup(date) {
+    const d = date || new Date();
+    const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+    const weekOfMonth = Math.ceil((d.getDate() + firstDay.getDay()) / 7);
+    return weekOfMonth % 2 === 1 ? "A" : "B";
+  }
+
+  // ---- 今日のゴミを判定 ----
+  function getTodayItems(dateOverride) {
+    const now = dateOverride || new Date();
+    const dow = now.getDay();
+    const wg = getWeekGroup(now);
+    return data.filter(d => {
+      if (!d.days.includes(dow)) return false;
+      if (!d.biweekly) return true;
+      return d.biweekly === wg;
+    });
+  }
+
+  // ---- 今日の表示 ----
+  function renderToday() {
+    const now = new Date();
+    const dow = now.getDay();
+    document.getElementById("todayDate").textContent =
+      `${now.getMonth()+1}月${now.getDate()}日（${WD[dow]}）`;
+    const items = getTodayItems(now);
+    const box = document.getElementById("todayItems");
+    box.innerHTML = "";
+    if (items.length === 0) {
+      box.innerHTML = '<div class="none">今日はゴミ出しの日ではありません</div>';
+    } else {
+      items.forEach(d => {
+        const el = document.createElement("div");
+        el.className = "pill";
+        el.textContent = d.name;
+        box.appendChild(el);
+      });
+    }
+  }
+
+  // ---- 登録リスト ----
+  function renderList() {
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+    if (data.length === 0) {
+      list.innerHTML = '<div class="empty">まだ登録がありません</div>';
+      return;
+    }
+    data.forEach((d, i) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const daysText = d.days.slice().sort().map(x => WD[x]).join("・") + "曜日";
+      const bwText = d.biweekly === "A" ? "　隔週（第1・3週）" : d.biweekly === "B" ? "　隔週（第2・4週）" : "";
+      const timeText = d.notifTime ? `　通知 ${d.notifTime}` : "";
+      row.innerHTML = `
+        <div class="info">
+          <div class="name">${escapeHtml(d.name)}</div>
+          <div class="days">${daysText}${bwText}${timeText}</div>
+        </div>
+        <button class="del" data-i="${i}">削除</button>`;
+      list.appendChild(row);
+    });
+    list.querySelectorAll(".del").forEach(b => {
+      b.onclick = () => {
+        data.splice(Number(b.dataset.i), 1);
+        save(); renderList(); renderToday();
+        scheduleAllNotifications();
+      };
+    });
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---- 曜日ボタン ----
+  function renderWeekdays() {
+    const box = document.getElementById("weekdays");
+    box.innerHTML = "";
+    WD.forEach((w, i) => {
+      const el = document.createElement("div");
+      el.className = "wd" + (selected.includes(i) ? " on" : "");
+      el.textContent = w;
+      el.onclick = () => {
+        if (selected.includes(i)) selected = selected.filter(x => x !== i);
+        else selected.push(i);
+        renderWeekdays();
+      };
+      box.appendChild(el);
+    });
+  }
+
+  // ---- 隔週オプション ----
+  document.getElementById("biweeklyCheck").onchange = function() {
+    const opts = document.getElementById("biweeklyOpts");
+    if (this.checked) {
+      opts.classList.add("show");
+      if (!biweeklyWeek) biweeklyWeek = "A";
+      renderBwOpts();
+    } else {
+      opts.classList.remove("show");
+      biweeklyWeek = null;
+    }
+  };
+  function renderBwOpts() {
+    document.querySelectorAll(".bw-opt").forEach(el => {
+      el.classList.toggle("on", el.dataset.w === biweeklyWeek);
+    });
+  }
+  document.querySelectorAll(".bw-opt").forEach(el => {
+    el.onclick = () => { biweeklyWeek = el.dataset.w; renderBwOpts(); };
+  });
+
+  // ---- 登録 ----
+  document.getElementById("addBtn").onclick = () => {
+    const name = document.getElementById("nameInput").value.trim();
+    if (!name) { alert("ゴミの種類を入力してください"); return; }
+    if (selected.length === 0) { alert("曜日を1つ以上えらんでください"); return; }
+    const notifTime = document.getElementById("notifTime").value || "07:00";
+    const entry = {
+      name,
+      days: selected.slice(),
+      biweekly: biweeklyWeek,
+      notifTime
+    };
+    data.push(entry);
+    save();
+    document.getElementById("nameInput").value = "";
+    document.getElementById("biweeklyCheck").checked = false;
+    document.getElementById("biweeklyOpts").classList.remove("show");
+    selected = [];
+    biweeklyWeek = null;
+    renderWeekdays(); renderBwOpts(); renderList(); renderToday();
+    scheduleAllNotifications();
+  };
+
+  // ===== 通知まわり =====
+
+  // Service Worker をインライン登録
+  const SW_CODE = `
+self.addEventListener('notificationclick', e => e.notification.close());
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SCHEDULE') {
+    const { items, ms } = e.data;
+    const delay = ms - Date.now();
+    if (delay > 0 && items.length > 0) {
+      setTimeout(() => {
+        self.registration.showNotification('🗑 ゴミ出しの日です！', {
+          body: items.join('・') + ' を出しましょう',
+          icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y=".9em" font-size="64">🗑</text></svg>',
+          tag: 'gomi-' + ms,
+          requireInteraction: false
+        });
+      }, delay);
+    }
+  }
+});
+`;
+
+  async function registerSW() {
+    if (!('serviceWorker' in navigator)) return null;
+    try {
+      const blob = new Blob([SW_CODE], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      const reg = await navigator.serviceWorker.register(url, { scope: './' });
+      await navigator.serviceWorker.ready;
+      return reg;
+    } catch(e) {
+      console.warn('SW registration failed', e);
+      return null;
+    }
+  }
+
+  async function requestNotifPermission() {
+    if (!('Notification' in window)) {
+      alert('このブラウザは通知に対応していません');
+      return false;
+    }
+    const perm = await Notification.requestPermission();
+    return perm === 'granted';
+  }
+
+  function scheduleAllNotifications() {
+    if (!swReg || !swReg.active) return;
+    // 今日〜7日先まで通知をスケジュール
+    const now = new Date();
+    for (let i = 0; i < 7; i++) {
+      const target = new Date(now);
+      target.setDate(now.getDate() + i);
+      const dow = target.getDay();
+      const wg = getWeekGroup(target);
+
+      // その日に出すゴミを絞り込み（通知時刻別にグループ）
+      const byTime = {};
+      data.forEach(d => {
+        if (!d.days.includes(dow)) return;
+        if (d.biweekly && d.biweekly !== wg) return;
+        const t = d.notifTime || "07:00";
+        if (!byTime[t]) byTime[t] = [];
+        byTime[t].push(d.name);
+      });
+
+      Object.entries(byTime).forEach(([time, items]) => {
+        const [h, m] = time.split(":").map(Number);
+        const notifAt = new Date(target);
+        notifAt.setHours(h, m, 0, 0);
+        if (notifAt > now) {
+          swReg.active.postMessage({ type: 'SCHEDULE', items, ms: notifAt.getTime() });
+        }
+      });
+    }
+  }
+
+  // 通知バナー
+  function updateNotifBanner() {
+    const banner = document.getElementById("notifBanner");
+    if (!('Notification' in window)) { banner.style.display = 'none'; return; }
+    if (Notification.permission === 'granted') {
+      banner.innerHTML = '<p class="notif-ok" style="flex:1;text-align:left;">✅ 通知が有効です。登録した時刻に自動でお知らせします。</p>';
+    } else if (Notification.permission === 'denied') {
+      banner.innerHTML = '<p style="flex:1;font-size:13px;">⚠️ 通知がブロックされています。ブラウザの設定から許可してください。</p>';
+    }
+  }
+
+  document.getElementById("notifBtn").onclick = async () => {
+    const ok = await requestNotifPermission();
+    if (ok) {
+      if (!swReg) swReg = await registerSW();
+      scheduleAllNotifications();
+    }
+    updateNotifBanner();
+  };
+
+  // ---- 初期化 ----
+  load();
+  renderToday();
+  renderList();
+  renderWeekdays();
+  updateNotifBanner();
+  (async () => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      swReg = await registerSW();
+      scheduleAllNotifications();
+    }
+  })();
+</script>
+</body>
+</html>
